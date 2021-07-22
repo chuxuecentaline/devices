@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">devices</string>
+    <string name="connect_retry">点击重试</string>
+</resources>
