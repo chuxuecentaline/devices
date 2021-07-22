@@ -11,8 +11,6 @@ import com.yaxiu.devices.widget.listener.ApiNetState
 import com.yaxiu.devices.widget.listener.ICameraKeyListener
 import com.yaxiu.devices.widget.listener.ICameraStateCallback
 import kotlinx.coroutines.*
-import java.lang.IllegalArgumentException
-import kotlin.contracts.Returns
 
 /**
  * @author meicet

@@ -189,8 +189,6 @@ class ApiNet {
         frameDataCallback: FrameDataCallback
     )
 
-    private external fun nativeStopServerNet()
-
     private external fun nativeCreateServerNet(): Long
 
     private external fun nativeServerDestroy(apiNetID: Long)

@@ -15,10 +15,6 @@ public class DevGroup {
     public String devid4ip;
 
 
-
-
-
-
 //DevGroup{total=1, devid0=10000, devid0ip='192.168.10.124', devid1=0, devid1ip='', devid2=0, devid2ip='', devid3=0, devid3ip='', devid4=0, devid4ip=''}
     @Override
     public String toString() {

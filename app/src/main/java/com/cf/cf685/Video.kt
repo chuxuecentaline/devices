@@ -55,7 +55,6 @@ class Video {
     var findiframe = false
     private val nalBuf = ByteArray(800000)
 
-
     init {
         System.loadLibrary("ffmpeg")
         System.loadLibrary("iMVR")

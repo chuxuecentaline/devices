@@ -26,13 +26,7 @@ Java_com_meicet_network_1hp_ApiNet_nativeServerDestroy(JNIEnv *env, jobject thiz
 
 
 }
-
 extern "C"
-JNIEXPORT void JNICALL
-Java_com_meicet_network_1hp_ApiNet_nativeStopServerNet(JNIEnv *env, jobject thiz) {
-
-
-}extern "C"
 JNIEXPORT void JNICALL
 Java_com_meicet_network_1hp_ApiNet_nativeKeyDataCallBack(JNIEnv *env, jobject thiz,
                                                          jlong api_net_server_id,
