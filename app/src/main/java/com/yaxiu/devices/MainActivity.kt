@@ -7,6 +7,9 @@ import androidx.appcompat.app.AppCompatActivity
 import com.yaxiu.devices.databinding.ActivityMainBinding
 import com.yaxiu.devices.utils.ImageUtils
 import com.yaxiu.devices.widget.listener.ICameraKeyListener
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import java.io.File
 
 class MainActivity : AppCompatActivity(), ICameraKeyListener {
@@ -18,8 +21,17 @@ class MainActivity : AppCompatActivity(), ICameraKeyListener {
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        binding.sampleText.addKeyListener(this)
+        //binding.sampleText.addKeyListener(this)
+        binding.image.setOnClickListener {
+        //    binding.sampleText.takePhoto()
 
+        }
+
+
+    }
+
+    override fun connectState(state: Boolean) {
+        Toast.makeText(this, "wifi 连接 $state", Toast.LENGTH_SHORT).show()
     }
 
     override fun onLeft() {
@@ -40,6 +52,10 @@ class MainActivity : AppCompatActivity(), ICameraKeyListener {
         val file2Uri = ImageUtils.file2Uri(this, File(path))
         println("path = [${path}]  = [${decodeFile}] file2Uri=[$file2Uri]")
         binding.image.setImageBitmap(decodeFile)
+    }
+
+    override fun showWifi() {
+        Toast.makeText(this, "wifi", Toast.LENGTH_SHORT).show()
     }
 
 

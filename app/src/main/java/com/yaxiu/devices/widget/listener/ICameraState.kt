@@ -16,6 +16,12 @@ interface ICameraStateCallback {
 
 /******************硬件的按键事件**********************/
 interface ICameraKeyListener {
+
+    /**
+     * 连接状态
+     */
+    fun connectState(state: Boolean)
+
     /**
      * 左键
      */
@@ -35,4 +41,9 @@ interface ICameraKeyListener {
      * 图片回调
      */
     fun postPath(path: String)
+
+    /**
+     * 弹出wifi
+     */
+    fun showWifi()
 }

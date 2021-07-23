@@ -80,6 +80,16 @@
                 android:textColor="#ffffffff"
                 android:textSize="12sp" />
 
+            <TextView
+                android:id="@+id/tv_show"
+                android:layout_width="150dp"
+                android:layout_height="35dp"
+                android:layout_marginTop="15dp"
+                android:background="@android:color/holo_blue_bright"
+                android:gravity="center"
+                android:text="@string/connect_wifi"
+                android:textColor="#ffffffff"
+                android:textSize="12sp" />
 
         </LinearLayout>
 

@@ -11,6 +11,7 @@ import com.yaxiu.devices.widget.listener.ApiNetState
 import com.yaxiu.devices.widget.listener.ICameraKeyListener
 import com.yaxiu.devices.widget.listener.ICameraStateCallback
 import kotlinx.coroutines.*
+import java.io.File
 
 /**
  * @author meicet
@@ -20,6 +21,7 @@ import kotlinx.coroutines.*
  */
 class CameraView : TextureView, TextureView.SurfaceTextureListener, ICameraKeyListener {
 
+    private var mPort: Int = 40121
     private var iICameraKeyListener: ICameraKeyListener? = null
     private var iICameraStateCallback: ICameraStateCallback? = null
     private val deviceHelper = ApiNet()
@@ -29,30 +31,22 @@ class CameraView : TextureView, TextureView.SurfaceTextureListener, ICameraKeyLi
 
     }
 
-    constructor(context: Context) : super(context)
-    constructor(context: Context, attrs: AttributeSet?) : super(context, attrs)
+    constructor(context: Context) : this(context, null)
+    constructor(context: Context, attrs: AttributeSet?) : this(context, attrs, 0)
     constructor(context: Context, attrs: AttributeSet?, defStyleAttr: Int) : super(
         context,
         attrs,
         defStyleAttr
     )
 
-    override fun onFinishInflate() {
-        super.onFinishInflate()
-
-        deviceHelper.onCreate()
-
-        surfaceTextureListener = this
+    init {
         //2初始化 预览区 监听按键 拍照回调
         deviceHelper.onCallbackFrameData = { //视频流
 
             video.onFrame(it)
         }
         deviceHelper.onKeyCallbackFrameData = {//按键流
-            if (iICameraKeyListener == null) {
-                throw IllegalArgumentException("Please initialize iICameraKeyListener")
-            }
-            video.onKey(it, this)
+            video.onKey(it)
         }
         /**
          *       StatePrepare(0),
@@ -65,6 +59,7 @@ class CameraView : TextureView, TextureView.SurfaceTextureListener, ICameraKeyLi
          *       StateClose(100)//连接断开或者被中断
          */
         deviceHelper.onCallbackNotifyState = { code ->
+
             if (iICameraStateCallback == null) {
                 throw IllegalArgumentException("Please initialize iICameraStateCallback")
             }
@@ -81,22 +76,27 @@ class CameraView : TextureView, TextureView.SurfaceTextureListener, ICameraKeyLi
 
                     }
                     ApiNetState.StateOnSend.state -> {
+                        video.isPreview=false
 
-                        iICameraStateCallback?.onSuccess()
                     }
                     ApiNetState.StateSuccess.state -> {
+                        video.isPreview=true
                         deviceHelper.startKey()
                         iICameraStateCallback?.onSuccess()
                     }
+                    ApiNetState.StateClose.state -> {
+                        video.isPreview=false
+                        iICameraStateCallback?.onFail("连接中断，请点击重试")
+                    }
                     ApiNetState.StateFail.state -> {
+                        video.isPreview=false
                         iICameraStateCallback?.onFail("IP 连接失败")
+
                     }
                     ApiNetState.StateConnectSuccess.state -> {
 
                     }
-                    ApiNetState.StateClose.state -> {
-                        iICameraStateCallback?.onFail("连接中断，请点击重试")
-                    }
+
                 }
 
             }
@@ -106,24 +106,45 @@ class CameraView : TextureView, TextureView.SurfaceTextureListener, ICameraKeyLi
 
     }
 
-    override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
-        //1.连接设备的网络 返回结果 成功 失败
-        println("onSurfaceTextureAvailable = [${Thread.currentThread().name}], width = [${width}], height = [${height}]")
-        video.init(this@CameraView)
+    fun connect(port: Int) {
+        mPort = port
+    }
+
+    override fun onFinishInflate() {
+        super.onFinishInflate()
+
+        deviceHelper.onCreate()
+
+        surfaceTextureListener = this
+
+    }
+
+    fun connect() {
         coroutine.launch {
             println("onSurfaceTextureAvailable = [${Thread.currentThread().name}]")
             startConnect()
         }
+    }
+
+    override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+        //1.连接设备的网络 返回结果 成功 失败
+        println("onSurfaceTextureAvailable = [${Thread.currentThread().name}], width = [${width}], height = [${height}]")
+
+        video.init(this@CameraView,this)
+        connect()
 
     }
 
     /**
      * 开始连接设备，必须再子线程中执行
      */
-    private suspend fun startConnect() {
-        if (deviceHelper.onConnect("192.168.1.1", 40121)) {
+    private fun startConnect() {
+        if (deviceHelper.onConnect("192.168.1.1", mPort)) {
+            connectState(true)
             video.initState()
             deviceHelper.isSendOK()
+        } else {
+            connectState(false)
         }
     }
 
@@ -133,6 +154,7 @@ class CameraView : TextureView, TextureView.SurfaceTextureListener, ICameraKeyLi
 
     override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
         //3.release 释放资源
+        video.isPreview=false
         video.release()
         deviceHelper.stopKey()
         deviceHelper.onDestroy()
@@ -162,10 +184,16 @@ class CameraView : TextureView, TextureView.SurfaceTextureListener, ICameraKeyLi
         video.isPreview = false
         coroutine.launch {
             deviceHelper.onStop()
-            delay(1000)
+            delay(1500)
             startConnect()
         }
 
+    }
+
+    override fun connectState(state: Boolean) {
+        CoroutineScope(Dispatchers.Main).launch {
+            iICameraKeyListener?.connectState(state)
+        }
     }
 
     override fun onLeft() {
@@ -191,4 +219,18 @@ class CameraView : TextureView, TextureView.SurfaceTextureListener, ICameraKeyLi
             iICameraKeyListener?.postPath(path)
         }
     }
+
+    override fun showWifi() {
+        iICameraKeyListener?.showWifi()
+    }
+
+    fun takePhoto() {
+        video.takePhoto()
+    }
+
+    fun saveFile(file: File) {
+        video.saveFile(file)
+    }
+
+
 }

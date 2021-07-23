@@ -3,7 +3,6 @@ package com.yaxiu.devices.widget
 import android.content.Context
 import android.util.AttributeSet
 import android.widget.FrameLayout
-import com.yaxiu.devices.MainActivity
 import com.yaxiu.devices.R
 import com.yaxiu.devices.databinding.CameraLayoutBinding
 import com.yaxiu.devices.widget.listener.ICameraKeyListener
@@ -29,15 +28,26 @@ class CameraContainerLayout : FrameLayout, ICameraStateCallback {
         inflate(context, R.layout.camera_layout, this)
 
         bind = CameraLayoutBinding.bind(this)
-
+        bind.camera.connect(40121)//连接设备的端口
         bind.tvRetry.setOnClickListener {
             retry()
         }
 
+        bind.tvShow.setOnClickListener {
+            showWifi()
+
+        }
+
+
+    }
+
+    private fun showWifi() {
+        bind.camera.showWifi()
     }
 
     override fun onSuccess() {
         bind.errorLayout.visibility = GONE
+
     }
 
     override fun fpsTip(fps: String) {
@@ -66,6 +76,11 @@ class CameraContainerLayout : FrameLayout, ICameraStateCallback {
 
     fun addKeyListener(listener: ICameraKeyListener) {
         bind.camera.addCameraCallback(this, listener)
+    }
+
+    fun takePhoto() {
+        bind.camera.takePhoto()
+
     }
 
 }

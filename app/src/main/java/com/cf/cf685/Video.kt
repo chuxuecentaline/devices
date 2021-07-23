@@ -24,6 +24,8 @@ import kotlin.experimental.and
  */
 class Video {
 
+    private var picPath: String = ""
+    private lateinit var mIkeyCallback: ICameraKeyListener
     private var simpleDateFormat: SimpleDateFormat
     private var g_isbm999: Int = 0
 
@@ -69,8 +71,8 @@ class Video {
     private external fun SearchDevice(out: ByteArray): Int
     private external fun Setip(ip: String): Int
 
-    fun init(cameraView: CameraView) {
-
+    fun init(cameraView: CameraView, ikeyCallback: ICameraKeyListener) {
+        mIkeyCallback = ikeyCallback
         mSurfaceView = cameraView
         if (mSurfaceView == null) {
             Log.e(TAG, "mSurfaceView 异常")
@@ -249,10 +251,18 @@ class Video {
 
     }
 
+
     /**
      * 按键的回调
      */
-    fun onKey(data: ByteArray, ikeyCallback: ICameraKeyListener) {
+    fun onKey(data: ByteArray) {
+        if (!::mIkeyCallback.isInitialized) {
+            Log.d(
+                TAG,
+                "Please initialize ICameraKeyListener "
+            )
+            return
+        }
 
         Log.d(
             TAG,
@@ -267,7 +277,7 @@ class Video {
                     g_oil = data[6]
                     g_water = data[7]
                     Log.i(TAG, "onKey 收到截屏事件--->bytesRead:$bytesRead")
-                    filePath(ikeyCallback)
+                    filePath(mIkeyCallback)
 
                 }
                 0 -> {
@@ -281,7 +291,7 @@ class Video {
                     } else {
                         Log.e(TAG, "onKey 收到截屏事件---------------is558---------------")
                     }
-                    filePath(ikeyCallback)
+                    filePath(mIkeyCallback)
                 }
                 5 -> {
                     Log.e(TAG, "onKey There is no JPG picture in the TF Card!")
@@ -294,15 +304,15 @@ class Video {
                 }
                 20 -> {
                     Log.e(TAG, "onKey 左边按键")
-                    ikeyCallback.onLeft()
+                    mIkeyCallback.onLeft()
                 }
                 21 -> {
                     Log.e(TAG, "onKey 右边按键")
-                    ikeyCallback.onRight()
+                    mIkeyCallback.onRight()
                 }
                 22 -> {
                     Log.e(TAG, "onKey 删除按键")
-                    ikeyCallback.deleteCurrentPic()
+                    mIkeyCallback.deleteCurrentPic()
                 }
 
                 else -> {
@@ -319,15 +329,20 @@ class Video {
      */
     private fun filePath(ikeyCallback: ICameraKeyListener) {
         val time = simpleDateFormat.format(Date(System.currentTimeMillis()))
-        val fileRoot = if (Environment.MEDIA_MOUNTED == Environment.getExternalStorageState()) {
-            File(Environment.getExternalStorageDirectory(), "Video_")
+        val file = if (picPath.isNullOrEmpty()) {
+            val fileRoot = if (Environment.MEDIA_MOUNTED == Environment.getExternalStorageState()) {
+                File(Environment.getExternalStorageDirectory(), "Video_")
+            } else {
+                File("Video_")
+            }
+            if (!fileRoot.exists()) {
+                fileRoot.mkdirs()
+            }
+            File(fileRoot, "${time}.jpg")
         } else {
-            File("Video_")
+            File(picPath, "${time}.jpg")
         }
-        if (!fileRoot.exists()) {
-            fileRoot.mkdirs()
-        }
-        val file = File(fileRoot, "${time}.jpg")
+
         mSurfaceView?.let {
             val bitmap = it.getBitmap(videowidth, videoheight)
             val save = ImageUtils.save(bitmap, file, Bitmap.CompressFormat.JPEG, 100, true)
@@ -346,5 +361,24 @@ class Video {
         g_isbm999 = is999
     }
 
+    /**
+     * 拍照
+     */
+    fun takePhoto() {
+        if (::mIkeyCallback.isInitialized) {
+            filePath(mIkeyCallback)
+        }
+
+    }
+
+    fun saveFile(file: File) {
+        if (!file.exists()) {
+            file.mkdirs()
+        }
+        if (file.exists()) {
+            picPath = file.absolutePath
+        }
+
+    }
 
 }

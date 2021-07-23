@@ -84,7 +84,7 @@ class ApiNet {
         val state = onConnectIP(ipAddress, port)
         Log.e(TAG, "state:$state")
         return if (state && nativeIsConnected(apiNetID, syncWaitTime * 20, 100)) {
-            onCallbackNotifyState.invoke(ApiNetState.StateFail.state)
+            onCallbackNotifyState.invoke(ApiNetState.StateSuccess.state)
             true
         } else {
             Log.e(TAG, "$syncWaitTime 秒内收无法连接成功 中断连接")
@@ -96,7 +96,7 @@ class ApiNet {
 
     //这里会阻塞线程 syncWaitTime 秒
     @WorkerThread
-    fun isSendOK(syncWaitTimeData: Int = 20) {
+    fun isSendOK(syncWaitTimeData: Int = 15) {
         onStartCmd()
         //通信成功后 5秒内收无法收到画面数据就视为无效连接
         if (nativeIsReceiveData(apiNetID, syncWaitTimeData * 100, 10)) {
