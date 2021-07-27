@@ -9,7 +9,7 @@ package com.yaxiu.devices.widget.listener
 /******************UI相关**********************/
 interface ICameraStateCallback {
     fun onSuccess()
-    fun onFail(error: String)
+    fun onFail(errorCord: Int)
     fun retry()
     fun fpsTip(fps: String)
 }

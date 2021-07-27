@@ -2,4 +2,6 @@
     <string name="app_name">devices</string>
     <string name="connect_retry">点击重试</string>
     <string name="connect_wifi">网络配置</string>
+    <string name="connect_fail">查找不到设备，请手动连接</string>
+    <string name="connect_close">中断连接</string>
 </resources>

@@ -6,14 +6,15 @@ import android.media.MediaFormat
 import android.os.Environment
 import android.util.Log
 import android.view.Surface
+import android.view.TextureView
 import com.yaxiu.devices.utils.ImageUtils
-import com.yaxiu.devices.widget.CameraView
 import com.yaxiu.devices.widget.listener.ICameraKeyListener
 import java.io.File
 import java.io.UnsupportedEncodingException
 import java.nio.charset.Charset
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.experimental.and
 
 /**
@@ -24,6 +25,7 @@ import kotlin.experimental.and
  */
 class Video {
 
+    var fpsFrameCount: Int = 0
     private var picPath: String = ""
     private lateinit var mIkeyCallback: ICameraKeyListener
     private var simpleDateFormat: SimpleDateFormat
@@ -34,28 +36,33 @@ class Video {
     private var isOpenCode: Boolean = false
     private lateinit var mCodec: MediaCodec
     var devip = "192.168.1.1"
-    private var mSurfaceView: CameraView? = null
-    var videowidth = 1280
-    var videoheight = 720
+    private var mSurfaceView: TextureView? = null
+    private var videoWidth = 1280
+    private var videoHeight = 720
     private var bytesRead = 0
     private var nalLen = 0
     private var sockBufUsed = 0
     private var nalBufUsed = 0
     private var bFirst = true
     private var bFindPPS = true
-    private var isRunState = false
+    var isRunState = false
     private var mTrans = 0x0F0F0F0F
     private var mCount = 0
 
+    /**
+     * 渲染视频
+     */
+    private var nalBuf: ByteArray? = ByteArray(1638400*4)//80000000 1638400 * 128
+
     //开始预览
-    var isPreview = false
+    var isPreview = AtomicBoolean(false)
 
     //点前帧率
     @Volatile
     private var fpsCount = 0
 
     var findiframe = false
-    private val nalBuf = ByteArray(800000)
+
 
     init {
         System.loadLibrary("ffmpeg")
@@ -65,13 +72,13 @@ class Video {
 
     companion object {
 
-        const val TAG = "iMVR"
+        const val TAG = "ApiNet_iMVR"
     }
 
     private external fun SearchDevice(out: ByteArray): Int
     private external fun Setip(ip: String): Int
 
-    fun init(cameraView: CameraView, ikeyCallback: ICameraKeyListener) {
+    fun init(cameraView: TextureView, ikeyCallback: ICameraKeyListener) {
         mIkeyCallback = ikeyCallback
         mSurfaceView = cameraView
         if (mSurfaceView == null) {
@@ -79,14 +86,17 @@ class Video {
             return
         }
         release()
+        if (nalBuf == null) {
+            nalBuf = ByteArray(8000000)
+        }
         Setip(devip)
         isRunState = true
         mCodec = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
         val createVideoFormat =
             MediaFormat.createVideoFormat(
                 MediaFormat.MIMETYPE_VIDEO_AVC,
-                videowidth,
-                videoheight
+                videoWidth,
+                videoHeight
             )
         mCodec.configure(createVideoFormat, Surface(cameraView.surfaceTexture), null, 0)
         mCodec.start()
@@ -113,56 +123,61 @@ class Video {
         return findevice
     }
 
-    /**
-     * 渲染视频
-     */
+
     fun onFrame(dataArray: ByteArray) {
-        Log.e(TAG, "onFrameData  size=${dataArray.size}")
+        Log.e(TAG, "onFrameData  size=${dataArray.size} thread:${Thread.currentThread().name}")
         bytesRead = dataArray.size
         sockBufUsed = 0
-        while (bytesRead - sockBufUsed > 0 && isRunState) {
-            nalLen =
-                mergeBuffer(nalBuf, nalBufUsed, dataArray, sockBufUsed, bytesRead - sockBufUsed)
-            nalBufUsed += nalLen
-            sockBufUsed += nalLen
-            while (mTrans == 1 && isRunState) {
-                mTrans = -0x1
-                if (bFirst) { // the first start flag
-                    bFirst = false
-                    Log.e(TAG, "跳出 第一帧")
-                } else { // a complete NAL data, include 0x00000001 trail.
-                    if (bFindPPS) { // true 没看懂
-                        if (nalBuf[4] and 0x1F == 7.toByte()) {
-                            bFindPPS = false
-                            Log.e(TAG, "跳出 FindPPS")
-                        } else {
-                            nalBuf[0] = 0
-                            nalBuf[1] = 0
-                            nalBuf[2] = 0
-                            nalBuf[3] = 1
-                            nalBufUsed = 4
-                            fpsCount++
-                            break
+        nalBuf?.let {
+            while (bytesRead - sockBufUsed > 0 && isRunState) {
+                nalLen =
+                    mergeBuffer(it, nalBufUsed, dataArray, sockBufUsed, bytesRead - sockBufUsed)
+                nalBufUsed += nalLen
+                sockBufUsed += nalLen
+                if (mTrans == 1 && isRunState) {
+                    mTrans = -0x1
+                    if (bFirst) { // the first start flag
+                        bFirst = false
+                        Log.e(TAG, "跳出 第一帧")
+                    } else { // a complete NAL data, include 0x00000001 trail.
+                        if (bFindPPS) { // true 没看懂
+                            if (it[4] and 0x1F == 7.toByte()) {//图像参数集
+                                bFindPPS = false
+                                Log.e(TAG, "跳出 FindPPS")
+                            } else {
+                                it[0] = 0
+                                it[1] = 0
+                                it[2] = 0
+                                it[3] = 1
+                                nalBufUsed = 4
+                                fpsCount++
+                                break
+                            }
                         }
+
+                        if (it[4] == 103.toByte()) {//这里没啥用
+                            findiframe = true
+                        }
+                        if (findiframe && isRunState) {
+                            if (it[4].toInt() == 101) {
+                                fpsFrameCount = 0
+                            } else {
+                                fpsFrameCount++
+                            }
+                            loadFrame(it, 0, nalBufUsed - 4)
+                            fpsCount++
+                        }
+
                     }
-
-
-                    if (nalBuf[4] == 103.toByte()) {//这里没啥用
-                        findiframe = true
-                    }
-                    if (findiframe && isRunState) {
-
-                        loadFrame(nalBuf, 0, nalBufUsed - 4)
-                        fpsCount++
-                    }
-
+                    it[0] = 0
+                    it[1] = 0
+                    it[2] = 0
+                    it[3] = 1
+                    nalBufUsed = 4
                 }
-                nalBuf[0] = 0
-                nalBuf[1] = 0
-                nalBuf[2] = 0
-                nalBuf[3] = 1
-                nalBufUsed = 4
             }
+
+
         }
 
     }
@@ -207,8 +222,8 @@ class Video {
 
 
     private fun mergeBuffer(
-        NalBuf: ByteArray,
-        NalBufUsed: Int,
+        nalBuf: ByteArray,
+        nalBufUsed: Int,
         SockBuf: ByteArray,
         SockBufUsed: Int,
         SockRemain: Int
@@ -218,7 +233,7 @@ class Video {
         i = 0
         while (i < SockRemain) {
             Temp = SockBuf[i + SockBufUsed]
-            NalBuf[i + NalBufUsed] = Temp
+            nalBuf[i + nalBufUsed] = Temp
             mTrans = mTrans shl 8
             mTrans = mTrans or Temp.toInt()
             if (mTrans == 1) {
@@ -231,7 +246,7 @@ class Video {
     }
 
     fun initState() {
-        isPreview = false
+        isPreview.set(false)
         mTrans = 0x0F0F0F0F
         nalLen = 0
         sockBufUsed = 0
@@ -243,11 +258,12 @@ class Video {
     }
 
     fun release() {
-        isRunState = false
-        if (::mCodec.isInitialized) {
+        if (::mCodec.isInitialized && isRunState) {
             mCodec.stop()
             mCodec.release()
+            nalBuf = null
         }
+        isRunState = false
 
     }
 
@@ -344,7 +360,7 @@ class Video {
         }
 
         mSurfaceView?.let {
-            val bitmap = it.getBitmap(videowidth, videoheight)
+            val bitmap = it.getBitmap(videoWidth, videoHeight)
             val save = ImageUtils.save(bitmap, file, Bitmap.CompressFormat.JPEG, 100, true)
             Log.e(TAG, "onKey 截屏 $save path:${file.absolutePath}")
             if (save) {
@@ -371,13 +387,27 @@ class Video {
 
     }
 
-    fun saveFile(file: File) {
-        if (!file.exists()) {
-            file.mkdirs()
+    fun initParams(width: Int, height: Int, file: File?) {
+        videoWidth = width
+        videoHeight = height
+        file?.let {
+            if (!file.exists()) {
+                file.mkdirs()
+            }
+            if (file.exists()) {
+                picPath = file.absolutePath
+            }
         }
-        if (file.exists()) {
-            picPath = file.absolutePath
-        }
+
+
+    }
+
+    fun getFps(): Int {
+        return fpsCount
+    }
+
+    fun reSetFps() {
+        fpsCount = 0
 
     }
 

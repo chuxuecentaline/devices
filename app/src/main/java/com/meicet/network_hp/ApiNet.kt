@@ -59,6 +59,7 @@ class ApiNet {
      * 回收视频连接
      */
     fun onDestroy(clearCallback: Boolean = true) {
+        stopKey()
         Log.e(TAG, "销毁前 id=$apiNetID")
         nativeDestroy(apiNetID)
         Log.e(TAG, "销毁后 id=$apiNetID")
@@ -79,11 +80,12 @@ class ApiNet {
 
     //这里会阻塞线程 syncWaitTime 秒
     @WorkerThread
-    fun onConnect(ipAddress: String, port: Int, syncWaitTime: Int = 15): Boolean {
+    fun onConnect(ipAddress: String, port: Int, syncWaitTime: Int = 10): Boolean {
 
         val state = onConnectIP(ipAddress, port)
         Log.e(TAG, "state:$state")
         return if (state && nativeIsConnected(apiNetID, syncWaitTime * 20, 100)) {
+
             onCallbackNotifyState.invoke(ApiNetState.StateSuccess.state)
             true
         } else {
@@ -177,11 +179,13 @@ class ApiNet {
     }
 
 
-    fun stopKey() {
+    private fun stopKey() {
 
         if (apiNetServerID != 0L) {
             nativeServerDestroy(apiNetServerID)
+            apiNetServerID = 0L
         }
+        Log.e(TAG, "stopKey 回收之前的指针  id=$apiNetServerID")
     }
 
     private external fun nativeKeyDataCallBack(
@@ -192,7 +196,6 @@ class ApiNet {
     private external fun nativeCreateServerNet(): Long
 
     private external fun nativeServerDestroy(apiNetID: Long)
-
 
 
 }
