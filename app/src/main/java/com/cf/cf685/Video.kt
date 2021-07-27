@@ -52,7 +52,7 @@ class Video {
     /**
      * 渲染视频
      */
-    private var nalBuf: ByteArray? = ByteArray(1638400*4)//80000000 1638400 * 128
+    private var nalBuf = ByteArray(1638400 * 4)//80000000 1638400 * 128
 
     //开始预览
     var isPreview = AtomicBoolean(false)
@@ -86,9 +86,6 @@ class Video {
             return
         }
         release()
-        if (nalBuf == null) {
-            nalBuf = ByteArray(8000000)
-        }
         Setip(devip)
         isRunState = true
         mCodec = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
@@ -128,7 +125,7 @@ class Video {
         Log.e(TAG, "onFrameData  size=${dataArray.size} thread:${Thread.currentThread().name}")
         bytesRead = dataArray.size
         sockBufUsed = 0
-        nalBuf?.let {
+        nalBuf.let {
             while (bytesRead - sockBufUsed > 0 && isRunState) {
                 nalLen =
                     mergeBuffer(it, nalBufUsed, dataArray, sockBufUsed, bytesRead - sockBufUsed)
@@ -261,7 +258,6 @@ class Video {
         if (::mCodec.isInitialized && isRunState) {
             mCodec.stop()
             mCodec.release()
-            nalBuf = null
         }
         isRunState = false
 
