@@ -25,6 +25,8 @@ class ApiNet {
         const val TAG = "ApiNet"
     }
 
+    var currentState = ApiNetState.StateIdol.state
+
     //NET对像全局指针地址  JNI赋值 client 客户端
     private var apiNetID: Long = 0L
 
@@ -38,6 +40,9 @@ class ApiNet {
     //连接中被打断回调close
     var onCallbackNotifyState: (state: Int) -> Unit = {}
 
+    //连接中被打断回调close
+    var onCallbackCloseError: (actionState: Int, error: Int) -> Unit = {_,_->}
+
     /**
      * client 视频通讯
      */
@@ -49,8 +54,16 @@ class ApiNet {
             }
         })
         nativeSetStateCallBack(apiNetID, object : ApiNetStateCallback {
-            override fun notifyState(state: Int) {
-                onCallbackNotifyState.invoke(state)
+            override fun notifyState(state: Int, actionState: Int, error: Int) {
+                Log.e(
+                    TAG, "JAVA层回调 notifyState state=$state actionState=$actionState  error=$error"
+                )
+                currentState = state
+                if (state == ApiNetState.StateClose.state) {
+                    onCallbackCloseError.invoke(actionState, error)
+                } else {
+                    onCallbackNotifyState.invoke(state)
+                }
             }
         })
     }
@@ -66,6 +79,7 @@ class ApiNet {
         if (clearCallback) {
             onCallbackNotifyState = {}
             onCallbackFrameData = {}
+            onCallbackCloseError = {_,_->}
         }
     }
 
@@ -80,25 +94,27 @@ class ApiNet {
 
     //这里会阻塞线程 syncWaitTime 秒
     @WorkerThread
-    fun onConnect(ipAddress: String, port: Int, syncWaitTime: Int = 10): Boolean {
+    fun onConnect(ipAddress: String, port: Int, syncWaitTime: Int = 15): Boolean {
 
         val state = onConnectIP(ipAddress, port)
         Log.e(TAG, "state:$state")
-        return if (state && nativeIsConnected(apiNetID, syncWaitTime * 20, 100)) {
+        return if (state && nativeIsConnected(apiNetID, syncWaitTime * 10, 100)) {
 
             onCallbackNotifyState.invoke(ApiNetState.StateSuccess.state)
             true
         } else {
             Log.e(TAG, "$syncWaitTime 秒内收无法连接成功 中断连接")
             onStop()
-            onCallbackNotifyState.invoke(ApiNetState.StateFail.state)
+            if(currentState!=ApiNetState.StateClose.state){//close没有回调时就主动回调失败状态
+                onCallbackNotifyState.invoke(ApiNetState.StateFail.state)
+            }
             false
         }
     }
 
     //这里会阻塞线程 syncWaitTime 秒
     @WorkerThread
-    fun isSendOK(syncWaitTimeData: Int = 15) {
+    fun isSendOK(syncWaitTimeData: Int = 10) {
         onStartCmd()
         //通信成功后 5秒内收无法收到画面数据就视为无效连接
         if (nativeIsReceiveData(apiNetID, syncWaitTimeData * 100, 10)) {
@@ -106,7 +122,9 @@ class ApiNet {
         } else {
             Log.e(TAG, "$syncWaitTimeData 秒内收无法收到画面数据 中断连接")
             onStop()
-            onCallbackNotifyState.invoke(ApiNetState.StateFail.state)
+            if(currentState!=ApiNetState.StateClose.state){//close没有回调时就主动回调失败状态
+                onCallbackNotifyState.invoke(ApiNetState.StateFail.state)
+            }
         }
     }
 

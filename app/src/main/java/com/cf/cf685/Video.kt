@@ -52,7 +52,7 @@ class Video {
     /**
      * 渲染视频
      */
-    private var nalBuf = ByteArray(1638400 * 4)//80000000 1638400 * 128
+    private var nalBuf = ByteArray(800000)//800000 1638400 * 128
 
     //开始预览
     var isPreview = AtomicBoolean(false)
@@ -75,6 +75,7 @@ class Video {
         const val TAG = "ApiNet_iMVR"
     }
 
+    private external fun GetVideoPort(): Int
     private external fun SearchDevice(out: ByteArray): Int
     private external fun Setip(ip: String): Int
 
@@ -156,11 +157,11 @@ class Video {
                             findiframe = true
                         }
                         if (findiframe && isRunState) {
-                            if (it[4].toInt() == 101) {
+                           /* if (it[4].toInt() == 101) {
                                 fpsFrameCount = 0
                             } else {
                                 fpsFrameCount++
-                            }
+                            }*/
                             loadFrame(it, 0, nalBufUsed - 4)
                             fpsCount++
                         }
@@ -258,7 +259,12 @@ class Video {
         if (::mCodec.isInitialized && isRunState) {
             mCodec.stop()
             mCodec.release()
+            Log.d(
+                TAG,
+                "release mCodec"
+            )
         }
+        isPreview.set(false)
         isRunState = false
 
     }
@@ -405,6 +411,10 @@ class Video {
     fun reSetFps() {
         fpsCount = 0
 
+    }
+
+    fun getDevVideoPort(): Int {
+        return GetVideoPort()
     }
 
 }
